@@ -1,0 +1,12 @@
+*.opt
+*.positions
+*.ncb
+*.plg
+Debug\*
+**\.cache
+**\.idea
+**\.vs
+**\out
+**\cmake-build-debug
+**\compile_commands.json
+**\CMakeSettings.json
