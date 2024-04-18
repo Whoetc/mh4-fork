@@ -7,7 +7,6 @@
  *
  */
 
-#include <fstream>
 #include <windows.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -396,9 +395,8 @@ ui32 unzipFile (char *szFileName,char *szUnzippedFileName,ui32 sizeToDelete)
 // Out:
 //
 // ------------------------------------------------------------------------------------------
-H4RFile::H4RFile (void)
+H4RFile::H4RFile (void): m_NbFile(0)
 {
-  m_NbFile = 0;
 }
 
 

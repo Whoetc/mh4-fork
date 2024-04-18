@@ -8,10 +8,8 @@
  */
 
 
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <stdlib.h>
 #include <qdatetime.h>
 #include <qapplication.h>
 #include <qmenubar.h>
@@ -41,13 +39,13 @@
 // Out:
 //
 // ------------------------------------------------------------------------------------------
-mh4Window::mh4Window(QWidget *parent, Qt::WindowFlags f) :
-        QMainWindow(parent, f) {
+
+
+mh4Window::mh4Window(QWidget *parent, Qt::WindowFlags flags): QMainWindow(parent, flags), m_curNumFile(0), m_pView(std::make_unique<mh4widget>(this)),m_pH4RFile(std::make_unique<H4RFile>())  {
     setWindowTitle(MH4_DESC);
 
-    m_pView = new mh4widget(this);
     m_pView->setMinimumSize(MIN_WIDTH, MIN_HEIGHT);
-    setCentralWidget(m_pView);
+    setCentralWidget(m_pView.get());
 
     // File menu
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
@@ -118,8 +116,6 @@ mh4Window::mh4Window(QWidget *parent, Qt::WindowFlags f) :
 
     // About menu
     aboutMenu->addAction(tr("About"), this, SLOT(about()));
-
-    m_pH4RFile = NULL;
 }
 
 
@@ -134,14 +130,19 @@ mh4Window::mh4Window(QWidget *parent, Qt::WindowFlags f) :
 // Out:
 //
 // ------------------------------------------------------------------------------------------
-mh4Window::~mh4Window(void) {
-    if (m_pView) {
-        delete m_pView;
-    }
-    if (m_pH4RFile) {
-        delete m_pH4RFile;
-    }
+mh4Window::~mh4Window() {
+    m_pView.reset();
+    m_pH4RFile.reset();
 }
+
+
+QModelIndex mh4Window::_getCellIdx(int row, int column){
+      return m_pView->m_itemModel->index(row, column);
+}
+
+    void mh4Window::_setRowData(HeaderColumnIdx idx, QString data){
+        m_pView->m_itemModel->setData(_getCellIdx(m_curNumFile,idx),data);
+    }
 
 
 // ------------------------------------------------------------------------------------------
@@ -162,27 +163,22 @@ void mh4Window::createSelection(void) {
         return;
     }
 
-    if (m_pH4RFile) {
-        delete m_pH4RFile;
-    }
-
-    m_pH4RFile = new H4RFile;
-
-    ui32 nbFile = m_pH4RFile->scan(fileNameString.toLatin1().data());
+    const ui32 nbFile = m_pH4RFile->scan(fileNameString.toLatin1().data());
     if (nbFile < 1) {
         QMessageBox::warning(this, "mh4", "No file to extract !");
         return;
     }
 
-    m_pView->m_itemModel->clear();
-    m_pView->createListViewItem(nbFile);
-    QString info, info3, info4;
+    QString info;
+    QString  info3;
+    QString info4;
     QDateTime info2;
     QDate qdate;
     QTime qtime;
-    int iiiint, iint;
-    int *mas1 = new int[nbFile];
-    int *mas2 = new int[nbFile];
+    ui32 iiiint = 0;
+    ui32 iint = 0;
+    auto mas1 = std::make_unique<ui32[]>(nbFile);
+    auto mas2 = std::make_unique<ui32[]>(nbFile);
 
     for (ui32 i = 0; i < nbFile; i++) {
         info.setNum(m_pH4RFile->m_pOffset[i]);
@@ -201,11 +197,6 @@ void mh4Window::createSelection(void) {
             }
         }
     }
-    //for( ui32 numFile3=0;numFile3<nbFile;numFile3++ )
-    //{
-//	iiiint = mas2[numFile3];
-//	mas1[iiiint] = numFile3;
-    //}
     for (ui32 numFile4 = 0; numFile4 < nbFile - 1; numFile4++) {
         iint = mas2[numFile4];
         iiiint = mas2[numFile4 + 1];
@@ -214,29 +205,21 @@ void mh4Window::createSelection(void) {
         info4.setNum(m_pH4RFile->m_pSize[iint]);
         mas1[iint] = info.toInt() - info3.toInt() - info4.toInt();
         if (numFile4 == nbFile - 2) {
-            // info3.setNum( m_pH4RFile->m_pOffset[iiiint] );
-            // info4.setNum( m_pH4RFile->m_pSize[iiiint] );
-            // mas1[iiiint] = 676966935 - info3.toInt() - info4.toInt();
             mas1[iiiint] = 0;
         }
     }
-    for (ui32 numFile = 0; numFile < nbFile; numFile++) {
-        QStandardItem *row = new QStandardItem;
-        m_pView->m_pListViewItem[numFile] = row;
-        // File name
-        QStandardItem *item = new QStandardItem;
-        item->setText(QString(m_pH4RFile->m_ppName[numFile]));
-        row->setChild(numFile, 0, item);
 
+    m_pView->m_itemModel->setRowCount(nbFile);
+    for (int numFile = 0; numFile < nbFile; numFile++) {
+        m_curNumFile = numFile;
+        // File name
+	_setRowData(NAME, QString(m_pH4RFile->m_ppName[numFile]));
         // File offset
         info.setNum(m_pH4RFile->m_pOffset[numFile]);
-        item = new QStandardItem(info.rightJustified(11, ' '));
-        row->setChild(numFile, 1, item);
-
+        _setRowData(OFFSET, info.rightJustified(11, ' '));
         // File size (zipped)
         info.setNum(m_pH4RFile->m_pSize[numFile]);
-        item = new QStandardItem(info.rightJustified(8, ' '));
-        row->setChild(numFile, 2, item);
+	_setRowData(SIZE, info.rightJustified(8, ' '));
 
 //        // File point
 //        info = QString(m_pH4RFile->m_ppPointer[numFile]);
@@ -245,14 +228,10 @@ void mh4Window::createSelection(void) {
 
         // File number
         info.setNum(numFile);
-        item = new QStandardItem(info.rightJustified(5, '0'));
-        row->setChild(numFile, 4, item);
-
+        _setRowData(NR, info.rightJustified(5, '0'));
         // File type
         info = QString(g_FileDataName[m_pH4RFile->m_pDataType[numFile]]);
-        item = new QStandardItem(info);
-        row->setChild(numFile, 5, item);
-
+        _setRowData(TYPE, info);
         // File date
         info2.setTime_t(m_pH4RFile->m_pTime[numFile]);
         qdate = info2.date();
@@ -284,15 +263,15 @@ void mh4Window::createSelection(void) {
             info3 += '0';
         }
         info3 += info.setNum(iiiint);
-        row->setChild(numFile, 6, new QStandardItem(info3));
+        _setRowData(DATE, info3);
 
         // File path
         info = QString(m_pH4RFile->m_ppPath[numFile]);
-        row->setChild(numFile, 7, new QStandardItem(info));
+        _setRowData(PATH, info);
 
         // File size (unzipped)
         info.setNum(m_pH4RFile->m_pUnpSize[numFile]);
-        row->setChild(numFile, 8, new QStandardItem(info.rightJustified(8, ' ')));
+        _setRowData(UNPK_SIZE, info.rightJustified(8, ' '));
 
         // Gzip value
         info3 = info.setNum(m_pH4RFile->m_pCompr[numFile]);
@@ -301,7 +280,7 @@ void mh4Window::createSelection(void) {
             info3 = "Yes";
         else
             info3 = "No";
-        row->setChild(numFile, 9, new QStandardItem(info3));
+        _setRowData(COMPRASSION, info3);
 
         info.setNum(mas1[numFile]);
         if (mas1[numFile] > 0)
@@ -309,10 +288,8 @@ void mh4Window::createSelection(void) {
         else
             info = '\0';
 
-        row->setChild(numFile, 10, new QStandardItem(info));
-        m_pView->m_itemModel->appendRow(row);
+        _setRowData(DBG_SIZE, info);
     }
-    auto a = 1;
 }
 
 
@@ -328,11 +305,7 @@ void mh4Window::createSelection(void) {
 //
 // ------------------------------------------------------------------------------------------
 void mh4Window::deleteSelection(void) {
-    m_pView->deleteListViewItem();
-    if (m_pH4RFile) {
-        delete m_pH4RFile;
-        m_pH4RFile = NULL;
-    }
+    m_pH4RFile.reset();
 }
 
 
@@ -357,7 +330,7 @@ void mh4Window::extractSelection(void) {
     ui32 nbFileToExtract = 0;
     for (ui32 i = 0; i < m_pView->m_NbItem; i++) {
         m_pH4RFile->m_pToExtract[i] = false;
-        for (QModelIndex idx: m_pView->getItemIdxs()) {
+        for (QModelIndex &idx: m_pView->getItemIdxs()) {
             if (idx.row() == i && m_pView->m_selectionModel->isSelected(idx)) {
                 m_pH4RFile->m_pToExtract[i] = true;
                 break;
@@ -458,6 +431,8 @@ void mh4Window::extractSelection(void) {
     QMessageBox::information(this, "Files extracted",
                              stringNbExtractedFile + " / " + stringNbFile + " files were extracted");
 }
+
+void mh4Window::closeAllWindows(void) { QApplication::closeAllWindows(); }
 
 
 // ------------------------------------------------------------------------------------------
@@ -622,7 +597,7 @@ void mh4Window::selectPointer(void) {
     }
 
     for (ui32 numFile = 0; numFile < m_pH4RFile->m_NbFile; numFile++) {
-        m_pView->m_selectionModel->select(m_pView->m_itemModel->index(numFile, HeaderColumn::POINTER),
+        m_pView->m_selectionModel->select(m_pView->m_itemModel->index(numFile, HeaderColumnIdx::POINTER),
                                           QItemSelectionModel::Select);
     }
 }
@@ -678,16 +653,16 @@ void mh4Window::inverseSelection(void) {
 // Out:
 //
 // ------------------------------------------------------------------------------------------
-void mh4Window::selectDataType(ui32 dataType) {
+void mh4Window::selectDataType(uint32_t dataType) {
     if (!m_pH4RFile) {
         return;
     }
 
     for (uint32_t numFile = 0; numFile < m_pH4RFile->m_NbFile; numFile++) {
-        QString dataTypeString = m_pView->m_pListViewItem[numFile]->child(0, HeaderColumn::TYPE)->text();
-        if (dataTypeString == g_FileDataName[dataType]) {
-            m_pView->m_selectionModel->select(m_pView->m_itemModel->index(numFile, 0), QItemSelectionModel::Select);
-        }
+        //QString dataTypeString = m_pView->m_pListViewItem[numFile]->child(0, HeaderColumnIdx::TYPE)->text();
+        //if (dataTypeString == g_FileDataName[dataType]) {
+        //    m_pView->m_selectionModel->select(m_pView->m_itemModel->index(numFile, 0), QItemSelectionModel::Select);
+        //}
     }
 }
 

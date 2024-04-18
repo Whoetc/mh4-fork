@@ -6,6 +6,8 @@ Debug\*
 **\.cache
 **\.idea
 **\.vs
+**\.vscode
+**\build
 **\out
 **\cmake-build-debug
 **\compile_commands.json

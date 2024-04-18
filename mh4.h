@@ -72,6 +72,9 @@ enum DATATYPE
 class H4RFile
 {
   public:
+    H4RFile();
+    ~H4RFile();
+
     char m_szH4rFileName[MAX_FILENAME_LENGTH];   // h4r file name
     ui32 m_NbFile;                               // Number of files
     bool *m_pToExtract;                          // Extract file ?

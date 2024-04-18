@@ -9,7 +9,7 @@
 
 
 #pragma once 
-#include <cstdint>
+#include <qabstractitemmodel.h>
 #ifndef __MH4WINDOW_H__
 #define __MH4WINDOW_H__
 
@@ -33,18 +33,22 @@ class mh4Window: public QMainWindow
   Q_OBJECT
 
   public:
-  mh4Window(QWidget* parent = NULL, Qt::WindowFlags f = Qt::WindowType::Window);
-    ~mh4Window (void);
+  explicit mh4Window(QWidget* parent = nullptr, Qt::WindowFlags flags = Qt::WindowFlags());
+  ~mh4Window ();
 
   protected:
-    mh4widget *m_pView;
-    H4RFile *m_pH4RFile;
+    int m_curNumFile;
+    std::unique_ptr<mh4widget> m_pView;
+    std::unique_ptr<H4RFile> m_pH4RFile;
 
+    QModelIndex _getCellIdx(int row, int column);
+    void _setRowData(HeaderColumnIdx idx, QString data);
 
   protected slots:
     // Options menu functions
     void createSelection (void);
     void deleteSelection (void);
+    void closeAllWindows (void);
     void extractSelection (void);
     void dumpSelection (void);
     void build (void);
@@ -53,7 +57,7 @@ class mh4Window: public QMainWindow
     void selectAll (void);
     void selectNothing (void);
     void inverseSelection (void);
-    void selectDataType (ui32 dataType);
+    void selectDataType (uint32_t dataType);
     void selectPointer (void);
 
     // About menu functions

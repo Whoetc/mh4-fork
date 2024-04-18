@@ -9,6 +9,7 @@
 
 
 #pragma once
+#include <memory>
 #ifndef __MH4WIDGET_H__
 #define __MH4WIDGET_H__
 
@@ -16,6 +17,7 @@
 #include <qtableview.h>
 #include <qstandarditemmodel.h>
 #include <qlayout.h> 
+#include <vector>
 #include "mh4.h"
 
 class QGridLayout;
@@ -23,10 +25,9 @@ class QTableView;
 class QStandardItemModel;
 
 // File type name and suffix
-const extern int g_headerColumnsCnt;
-const extern char* g_headerColumnsTxt[];
+const int g_headerColumnCnt = 11;
 
-enum HeaderColumn
+enum HeaderColumnIdx
 {
   NAME = 0,
   OFFSET,
@@ -46,17 +47,14 @@ class mh4widget: public QWidget
   Q_OBJECT
 
   public:
-    mh4widget (QWidget *parent,const char *name = NULL);
-    ~mh4widget (void);
-    void createListViewItem (ui32 nbItem);
-    void deleteListViewItem (void);
-    std::vector<QModelIndex> getItemIdxs(void);
+    explicit mh4widget(QWidget* parent = nullptr, Qt::WindowFlags flags = Qt::WindowFlags());
+    ~mh4widget ();
+    std::vector<QModelIndex> getItemIdxs();
 
-    QGridLayout *m_pMainGrid;
-    QTableView *m_pListView;
-    QStandardItem **m_pListViewItem;
+    std::unique_ptr<QGridLayout> m_pMainGrid;
+    std::unique_ptr<QTableView> m_pListView;
+    std::unique_ptr<QStandardItemModel> m_itemModel;
     QItemSelectionModel *m_selectionModel;
-    QStandardItemModel *m_itemModel;
     ui32 m_NbItem;
 };
 

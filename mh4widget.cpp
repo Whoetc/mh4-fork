@@ -8,6 +8,7 @@
  */
 
 
+#include <array>
 #include <malloc.h>
 #include <qwidget.h>
 #include <qtableview.h>
@@ -15,12 +16,6 @@
 #include <qlayout.h> 
 #include <qlistview.h>
 #include "mh4widget.h"
-
-
-const int g_headerColumnsCnt = 11;
-const char* g_headerColumnsTxt[] = {"Name" , "Offset" , "Size", "Pointer name" ,
-"Nr" , "Type" , "Date" , "Path", "Unpacked size" ,
-"Comprassion" , "Debug size" };
 
 
 // ------------------------------------------------------------------------------------------
@@ -36,33 +31,32 @@ const char* g_headerColumnsTxt[] = {"Name" , "Offset" , "Size", "Pointer name" ,
 // Out:
 //
 // ------------------------------------------------------------------------------------------
-mh4widget::mh4widget (QWidget *parent,const char *name): QWidget(parent){
-  m_pMainGrid = new QGridLayout( this );
-  m_pListView = new QTableView( this );
+mh4widget::mh4widget(QWidget* parent, Qt::WindowFlags flags):
+  QWidget(parent, flags),
+  m_NbItem(0),
+  m_pMainGrid(std::make_unique<QGridLayout>( this )),
+  m_pListView(std::make_unique<QTableView>( this )),
+  m_selectionModel(dynamic_cast<QItemSelectionModel*>(m_pListView->model()))
+{
 
-  QStandardItemModel *model = new QStandardItemModel;
-  model->setColumnCount(g_headerColumnsCnt);
+  m_itemModel = std::make_unique<QStandardItemModel>();
+
   QStringList headers;
-  for (const char *header: g_headerColumnsTxt){
-    headers << tr(header);
+  const std::array<std::string, g_headerColumnCnt> g_headerColumnsTxt = {"Name" , "Offset" , "Size", "Pointer name" ,
+  "Nr" , "Type" , "Date" , "Path", "Unpacked size" ,
+  "Comprassion" , "Debug size" };
+  for (const std::string &header: g_headerColumnsTxt){
+    headers << tr(header.data());
   }
-  model->parent();
-  model->setHorizontalHeaderLabels(headers);
+  m_itemModel->parent();
+  m_itemModel->setHorizontalHeaderLabels(headers);
+  m_itemModel->setColumnCount(g_headerColumnCnt);
 
-  m_pListView->setModel(model);
+  m_pListView->setModel(m_itemModel.get());
   m_pListView->setSelectionMode( QTableView::ExtendedSelection );
 
-  m_itemModel = model;
-  m_selectionModel = dynamic_cast<QItemSelectionModel*>(m_pListView->model());
-
-
-  m_pMainGrid->addWidget( m_pListView,0,0 );
-
-  // No item
-  m_NbItem = 0;
-  m_pListViewItem = NULL;
+  m_pMainGrid->addWidget( m_pListView.get(),0,0 );
 }
-
 
 // ------------------------------------------------------------------------------------------
 // mh4widget::~mh4widget
@@ -75,62 +69,26 @@ mh4widget::mh4widget (QWidget *parent,const char *name): QWidget(parent){
 // Out:
 //
 // ------------------------------------------------------------------------------------------
-mh4widget::~mh4widget (void)
+mh4widget::~mh4widget ()
 {
-  deleteListViewItem();
-  delete m_pListView;
-  delete m_pMainGrid;
+  if (m_NbItem > 0) {
+    m_itemModel->clear();
+    // No more item
+    m_NbItem = 0;
+  }
+  m_pListView.reset();
+  m_pMainGrid.reset();
 }
 
-std::vector<QModelIndex> mh4widget::getItemIdxs(void)
+std::vector<QModelIndex> mh4widget::getItemIdxs()
 {
   std::vector<QModelIndex> idxs;
-  for( ui32 numFile=0;numFile < m_NbItem;numFile++ )
+  for( int numFile=0;numFile < m_NbItem;numFile++ )
   {
-    for (int clmnIdx = 0; clmnIdx < g_headerColumnsCnt; clmnIdx++)
+    for (int clmnIdx = 0; clmnIdx < g_headerColumnCnt; clmnIdx++)
     {
       idxs.push_back(m_itemModel->index(numFile, clmnIdx));
     }
   }
   return idxs;
-}
-
-
-void mh4widget::createListViewItem (unsigned int nbItem)
-{
-  if( m_pListViewItem )
-  {
-    deleteListViewItem();
-  }
-
-  m_NbItem = nbItem;
-  if( m_NbItem > 0 )
-  {
-    m_pListViewItem = new QStandardItem*[nbItem];
-  }
-}
-
-
-// ------------------------------------------------------------------------------------------
-// mh4widget::deleteListViewItem
-// ------------------------------------------------------------------------------------------
-// Description:
-//    Delete the items of the list view.
-// ------------------------------------------------------------------------------------------
-// In:
-//
-// Out:
-//
-// ------------------------------------------------------------------------------------------
-void mh4widget::deleteListViewItem (void)
-{
-  if( m_NbItem > 0 )
-  {
-    delete[] m_pListViewItem;
-    m_itemModel->clear();
-
-    // No more item
-    m_NbItem = 0;
-    m_pListViewItem = NULL;
-  }
 }
